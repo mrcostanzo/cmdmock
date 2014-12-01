@@ -1,0 +1,29 @@
+Have a hash for input arguments and hash for output response.
+
+when running and an output file already exists, the following are possible actions:
+
+input hash and output hash already matched -> do nothing
+
+neither input hash nor output hash exist ->  append new canned response
+
+output hash exists but input hash doesn't -> add input hash to canned match list
+
+input hash exists but output hash doesn't exist (something changed)
+
+a) input hash was only one in match list -> rewrite output with new response
+b) input hash was in a list -> remove input hash from list, make new dedicated entry.
+
+
+support a training file that has different invocations of the command 
+
+compress outputs?
+
+break outputs into a separate helper file? have this as optional?
+
+provisions to use by other modules (like an advanced training module that tries to understand input argument syntax.)
+
+generate regex for input arguments if syntax is understood
+
+simple parsing of whitespace (outside of quotes ignore, inside quotes preserve?)
+
+maybe naive hashing of input is good enough
