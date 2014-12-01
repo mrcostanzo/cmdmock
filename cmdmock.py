@@ -5,15 +5,17 @@
 """ cmdmock is a simple utility to create a mock version of a command with a specific
 argument string (or no arguments). It runs the command, takes the output and hard-codes that
 output as a canned response which can then be called and regurigtated. It then tries to set
-the file to be executable
+the file to be executable so a module under test or development can call it transparently
 """
 
+#TODO add hash logic (output hash primary, input hash secondary)
 #TODO consider supporting options before the command to change behavior
 #TODO optionally enforce exact argument string or return an error
 #TODO optionally build up the vocabulary of the mocker by running multiple arguments
 # and appending their output
 #TODO optionally compress output into a blob in case it is catting a big file for example
 #TODO support verbose output
+#TODO explicitly add to path for this shell instance?
 
 import sys
 import os
@@ -84,7 +86,7 @@ def main(argv):
     #(options, args) = handle_args()
 
     log.basicConfig(format="[%(levelname)s]: %(message)s", level=log.DEBUG)
-    
+
     passed_options = argv[1:]
     log.info("Options passed were: %s", passed_options)
     response = get_response(passed_options)
