@@ -18,12 +18,15 @@ support a training file that has different invocations of the command
 
 compress outputs?
 
-break outputs into a separate helper file? have this as optional?
+break outputs into a separate helper file? have this as optional? Pickle + compress?
 
 provisions to use by other modules (like an advanced training module that tries to understand input argument syntax.)
 
 generate regex for input arguments if syntax is understood
 
-simple parsing of whitespace (outside of quotes ignore, inside quotes preserve?)
+simple lexical analysis before hashing?  shlex.split() 
 
 maybe naive hashing of input is good enough
+
+============ done =========================
+
