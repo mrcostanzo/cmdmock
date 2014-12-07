@@ -1,0 +1,5 @@
+sensors
+sensors -u
+sensors -v
+sensors -h
+sensors -f

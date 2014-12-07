@@ -24,20 +24,69 @@ import socket
 import time
 import logging as log
 import optparse
+import hashlib
 
 
 def handle_args():
     """Parse out arguments"""
     parser = optparse.OptionParser()
-    parser.add_option('-a', '--ado', dest='ado_arg', help='Ado instance to clone metadata from')
-    parser.add_option('-f', '--file', dest='xml_file', \
-    help='Optionally specify an output destination')
-    parser.add_option('-v', '--verbose', action='store_true', dest='verbose', default=False,
-                      help='Print informative messages')
-    parser.add_option('-d', '--debug', action='store_true', dest='debug', default=False,
-                      help='Print all messages including debug')
+    parser.add_option('-i', '--interactive', action='store_true', \
+                      help='Interactively enter a series of invocations'
+                      )
+    parser.add_option('-f', '--file', dest='training_file', \
+                      help='Optionally specify a training file with line-seperated invocations'
+                      )
+    #parser.add_option('-v', '--verbose', action='store_true', dest='verbose', default=False,
+    #                  help='Print informative messages')
+    #parser.add_option('-d', '--debug', action='store_true', dest='debug', default=False,
+    #                  help='Print all messages including debug')
     (options, args) = parser.parse_args()
     return (options, args)
+
+
+class invocation_set:
+    """ Container to hold, add, and serialize invocations and responses for building a vocalbulary.
+    Inputs are stored as a list of arguments, the same way argv does it, they are also hashed using 
+    md5 for searching and indexing. Command responses are stored as big strings along with their 
+    hashes for easier indexing and comparison. """
+    
+    def __init__(self):
+        """ Create empty invocation set """
+        self.invocations = {}   #collection of invocation arg permutations, indexed by their hashes
+        self.responses = {}     #collection of output responses, indexed by their hashes
+        self.call_map = {}      #mapping of what invocations yield what outputs (1-to-1 or many-to-1)
+        
+    def add_invocation(self, invocation):
+        """ Add invocation to the set, including output and mapping.
+        invocation should be a list in the same format as argv provides including the command itself
+         """
+        log.debug("Invoking %s", str(invocation))
+        invocation_hash = hashlib.md5(str(invocation)).hexdigest()
+        log.debug("Invocation hash is %s", invocation_hash)
+        output = get_response(invocation)
+        output_hash = hashlib.md5(output).hexdigest()
+        log.debug("Output hash was %s", output_hash)
+        
+        if output_hash not in self.responses:       #if output is new add it
+            self.responses[output_hash] = output
+        
+        if invocation_hash not in self.invocations:
+            self.invocations[invocation_hash] = invocation
+        
+        if invocation_hash not in self.call_map:
+            self.call_map[invocation_hash] = output_hash
+        
+        #log.debug("Output was:\n%s", output) 
+    
+    def summarize(self):
+        """ Get stats and printouts for debugging """
+        log.debug("Invocations:\n%s", str(self.invocations))
+        log.debug("Mapping:\n%s", str(self.call_map))
+        log.debug("Outputs:\n%s", str(self.responses))
+    
+    def serialze(self):
+        """ Generate the code text for all invocations to be written into the output file """
+        return str(dir(self))    #one step better than pass
 
 
 def get_response(arg_list):
@@ -100,13 +149,19 @@ def main(argv):
     #(options, args) = handle_args()
 
     log.basicConfig(format="[%(levelname)s]: %(message)s", level=log.DEBUG)
+    
+    vocab = invocation_set()    #initiate the empty vocabulary
+    vocab.add_invocation(argv[1:])
+    vocab.summarize()
+    #print vocab.serialze() 
 
+"""
     passed_options = argv[1:]
     log.info("Options passed were: %s", passed_options)
     response = get_response(passed_options)
     log.info("Response was:\n%s", response)
     write_mock_cmd(argv[1], response)
-
+"""
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv))
