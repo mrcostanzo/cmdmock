@@ -13,8 +13,6 @@ __version__ = '0.04'
 #TODO add time to auto-generated module docstring
 #TODO consider supporting options before the command to change behavior
 #TODO optionally enforce exact argument string or return an error
-#TODO optionally build up the vocabulary of the mocker by running multiple arguments
-# and appending their output
 #TODO optionally compress output into a blob in case it is catting a big file for example
 #TODO support verbose output
 #TODO explicitly add to path for this shell instance?
@@ -54,7 +52,7 @@ class InvocationSet(object):
         """ Create empty invocation set for command cmd. We will enforce that all invocations
         begin with cmd or the program will exit with an error. In file mode cmd is the command
         of the first invocation, in interactive mode it is the first command passed """
-        self.cmd = cmd          #root command, present in all invocations
+        self.cmd = cmd          #root command
         self.invocations = {}   #collection of invocation arg permutations, indexed by their hashes
         self.responses = {}     #collection of output responses, indexed by their hashes
         self.call_map = {}      #mapping of what invocations yield what outputs (1-to-1 or many-to-1)
@@ -63,12 +61,13 @@ class InvocationSet(object):
         """ Add invocation to the set, including output and mapping.
         invocation should be a list in the same format as argv provides including the command itself
          """
-        if invocation[0] != self.cmd:
+        if not invocation[0].endswith(self.cmd):
             log.error("Invocation %s does not match command '%s'", invocation, self.cmd)
             raise ValueError
 
+        ops_and_args = invocation[1:]                   #strip off command 
         #log.debug("Invoking %s", str(invocation))
-        invocation_hash = hashlib.md5(str(invocation)).hexdigest()
+        invocation_hash = hashlib.md5(str(ops_and_args)).hexdigest()  #don't hash cmd itself because paths
         #log.debug("Invocation hash is %s", invocation_hash)
         output = get_response(invocation)
         output_hash = hashlib.md5(output).hexdigest()
@@ -80,14 +79,14 @@ class InvocationSet(object):
 
         if output_hash not in self.responses:       #if output is new add it
             self.responses[output_hash] = output
-            log.debug("Invocation %s: adding new output (hash = %s)", invocation, output_hash)
+            log.debug("Invocation %s: adding new output (hash = %s)", invocation[1:], output_hash)
 
         if invocation_hash not in self.invocations:         #if input is new add to invocations
-            self.invocations[invocation_hash] = invocation
-            log.debug("Invocation %s: adding new input hash: %s", invocation, invocation_hash)
+            self.invocations[invocation_hash] = ops_and_args
+            log.debug("Invocation %s: adding new input hash: %s", ops_and_args, invocation_hash)
 
         self.call_map[invocation_hash] = output_hash    # unconditionally add or update the map
-        log.debug("Invocation %s: setting map: (%s : %s)\n", invocation, invocation_hash, \
+        log.debug("Invocation %s: setting map: (%s : %s)\n", ops_and_args, invocation_hash, \
                   self.call_map[invocation_hash])
 
         #log.debug("Output was:\n%s", output)
@@ -102,7 +101,7 @@ class InvocationSet(object):
 
     def serialize(self):
         """ Generate the code text for all invocations to be written into the output file """
-        vocab_string = "CALL_MAP = %s\n\nOUTPUTS = %s" %(str(self.call_map), str(self.responses))
+        vocab_string = "CALL_MAP = %s\n\nOUTPUTS = %s\n" %(str(self.call_map), str(self.responses))
         return vocab_string
 
 
@@ -113,10 +112,10 @@ def get_response(arg_list):
     return proc_response[0]
 
 
-def write_mock_cmd(cmd, output):
+def write_mock_cmd(vocab):
     """ writes a file named cmd with a constant string of the output """
 
-    output_file = cmd + '.gpy' # .gpy is for 'generated python #TODO drop the extension
+    output_file = vocab.cmd + '.gpy' # .gpy is for 'generated python #TODO drop the extension
 
     shebang = "#!/usr/bin/python\n"
     date = time.strftime("%d/%m/%Y")
@@ -128,13 +127,14 @@ def write_mock_cmd(cmd, output):
     '\non ' + date + ' called by ' + caller + '\nwith the following invocation:\n' + \
     full_invocation + '\n"""\n'
 
-    import_string = "\nimport sys\n\n"
-
-    canned_string = "CANNED_OUTPUT  = '''" + output + "'''\n\n"
-
-    main_string = '''def main(argv):\n\t"""Main Module"""\n\n''' \
-                  '\tif argv[1:] == ' + argument_list + ':\n' \
-                  '\t\tprint CANNED_OUTPUT,\n' \
+    import_string = "\nimport sys\nimport hashlib\n\n"
+    
+    vocab_string = vocab.serialize()
+    
+    main_string = '''\ndef main(argv):\n\t"""Main Module"""\n\n''' \
+                  '\tinvocation_hash = hashlib.md5(str(argv[1:])).hexdigest()\n' \
+                  '\tif invocation_hash in CALL_MAP:\n' \
+                  '\t\tprint OUTPUTS[CALL_MAP[invocation_hash]]\n' \
                   '\telse:\n' \
                   '\t\tprint "Unsupported argument"\n' \
                   '\t\traise ValueError\n\n'
@@ -147,7 +147,7 @@ def write_mock_cmd(cmd, output):
         fp.write(shebang)
         fp.write(doc_string)
         fp.write(import_string)
-        fp.write(canned_string)
+        fp.write(vocab_string)
         fp.write(main_string)
         fp.write(exec_string)
         fp.close()
@@ -176,20 +176,16 @@ def main(argv):
 
     vocab = InvocationSet(argv[1])    #initiate the empty vocabulary for command
     vocab.add_invocation(argv[1:])
+    vocab.add_invocation(['ls'])
     vocab.add_invocation(['ls', '-al'])
+    vocab.add_invocation(['ls', '-la'])
     vocab.add_invocation(['ls', '-a', '-l'])
     vocab.add_invocation(['ls', '-alh'])
-    #vocab.add_invocation(['echo', '"Some text"'])  #test to bomb
+    #vocab.add_invocation(['echo', '"Some text"'])  #test error
     vocab.summarize()
-    write_serialization(vocab)
-    #print vocab.serialze()
-
-
-    passed_options = argv[1:]
-    log.info("Options passed were: %s", passed_options)
-    response = get_response(passed_options)
-    log.info("Response was:\n%s", response)
-    write_mock_cmd(argv[1], response)
+    #write_serialization(vocab)
+    
+    write_mock_cmd(vocab)
 
 
 if __name__ == "__main__":
