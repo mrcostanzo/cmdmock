@@ -1,6 +1,5 @@
-Have a hash for input arguments and hash for output response.
 
-when running and an output file already exists, the following are possible actions:
+when running and an output already exists, the following are possible actions:
 
 input hash and output hash already matched -> do nothing
 
@@ -12,7 +11,6 @@ input hash exists but output hash doesn't exist (something changed)
 
 a) input hash was only one in match list -> rewrite output with new response
 b) input hash was in a list -> remove input hash from list, make new dedicated entry.
-
 
 support a training file that has different invocations of the command 
 
@@ -29,4 +27,4 @@ simple lexical analysis before hashing?  shlex.split()
 maybe naive hashing of input is good enough
 
 ============ done =========================
-
+Have a hash for input arguments and hash for output response.
