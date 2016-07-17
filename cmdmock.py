@@ -8,15 +8,6 @@ output as a canned response which can then be called and regurgitated. It then t
 the file to be executable so a module under test or development can call it transparently
 """
 
-__version__ = '0.04'
-
-# TODO add time to auto-generated module docstring
-#TODO consider supporting options before the command to change behavior
-#TODO optionally enforce exact argument string or return an error
-#TODO optionally compress output into a blob in case it is catting a big file for example
-#TODO support verbose output
-#TODO explicitly add to path for this shell instance?
-
 import sys
 import os
 import subprocess
@@ -26,20 +17,31 @@ import logging as log
 import optparse
 import hashlib
 
+__version__ = '0.04'
+
+# TODO add time to auto-generated module docstring
+# TODO support a training file to run and mock a series of invocations
+# TODO consider supporting options before the command to change behavior
+# TODO optionally enforce exact argument string or return an error
+# TODO optionally compress output into a blob in case it is catting a big file for example
+# TODO support verbose output
+# TODO explicitly add to path for this shell instance?
+# TODO should multiple instances add to the output? Probably not, just have a training file for that
+
 
 def handle_args():
     """Parse out arguments"""
     parser = optparse.OptionParser()
-    parser.add_option('-i', '--interactive', action='store_true', \
+    parser.add_option('-i', '--interactive', action='store_true',
                       help='Interactively enter a series of invocations')
-    parser.add_option('-f', '--file', dest='training_file', \
+    parser.add_option('-f', '--file', dest='training_file',
                       help='Optionally specify a training file with line-seperated invocations')
     #parser.add_option('-v', '--verbose', action='store_true', dest='verbose', default=False,
     #                  help='Print informative messages')
     #parser.add_option('-d', '--debug', action='store_true', dest='debug', default=False,
     #                  help='Print all messages including debug')
     (options, args) = parser.parse_args()
-    return (options, args)
+    return options, args
 
 
 class InvocationSet(object):
@@ -52,10 +54,10 @@ class InvocationSet(object):
         """ Create empty invocation set for command cmd. We will enforce that all invocations
         begin with cmd or the program will exit with an error. In file mode cmd is the command
         of the first invocation, in interactive mode it is the first command passed """
-        self.cmd = cmd          #root command
-        self.invocations = {}   #collection of invocation arg permutations, indexed by their hashes
-        self.responses = {}     #collection of output responses, indexed by their hashes
-        self.call_map = {}      #mapping of what invocations yield what outputs (1-to-1 or many-to-1)
+        self.cmd = cmd          # root command
+        self.invocations = {}   # collection of invocation arg permutations, indexed by their hashes
+        self.responses = {}     # collection of output responses, indexed by their hashes
+        self.call_map = {}      # mapping of what invocations yield what outputs (1-to-1 or many-to-1)
 
     def add_invocation(self, invocation):
         """ Add invocation to the set, including output and mapping.
@@ -74,26 +76,26 @@ class InvocationSet(object):
         #log.debug("Output hash was %s", output_hash)
 
         if (output_hash not in self.responses) and (invocation_hash in self.invocations):
-            log.warn("New response for equavalent invocation: %s. Does command print time?", \
+            log.warn("New response for equivalent invocation: %s. Does command print time?",
                      invocation)
 
-        if output_hash not in self.responses:       #if output is new add it
+        if output_hash not in self.responses:       # if output is new add it
             self.responses[output_hash] = output
             log.debug("Invocation %s: adding new output (hash = %s)", invocation[1:], output_hash)
 
-        if invocation_hash not in self.invocations:         #if input is new add to invocations
+        if invocation_hash not in self.invocations:         # if input is new add to invocations
             self.invocations[invocation_hash] = ops_and_args
             log.debug("Invocation %s: adding new input hash: %s", ops_and_args, invocation_hash)
 
         self.call_map[invocation_hash] = output_hash    # unconditionally add or update the map
-        log.debug("Invocation %s: setting map: (%s : %s)\n", ops_and_args, invocation_hash, \
+        log.debug("Invocation %s: setting map: (%s : %s)\n", ops_and_args, invocation_hash,
                   self.call_map[invocation_hash])
 
         #log.debug("Output was:\n%s", output)
 
     def summarize(self):
         """ Get stats and printouts for debugging """
-        log.debug("\n%d invocations mapped to %d outputs via %d map entries\n\n", \
+        log.debug("\n%d invocations mapped to %d outputs via %d map entries\n\n",
                   len(self.invocations), len(self.responses), len(self.call_map))
         log.debug("Invocations:\n%s", str(self.invocations))
         log.debug("Mapping:\n%s", str(self.call_map))
@@ -124,8 +126,8 @@ def write_mock_cmd(vocab):
     argument_list = str(sys.argv[2:])
 
     doc_string = '"""This module was generated by mockcmd.py version ' + __version__ + \
-    '\non ' + date + ' called by ' + caller + '\nwith the following invocation:\n' + \
-    full_invocation + '\n"""\n'
+                 '\non ' + date + ' called by ' + caller + '\nwith the following invocation:\n' + \
+                 full_invocation + '\n"""\n'
 
     import_string = "\nimport sys\nimport hashlib\n\n"
     
@@ -156,7 +158,7 @@ def write_mock_cmd(vocab):
         log.exception("write failure")
         sys.exit(1)
 
-    #set file executable
+    # set file executable
     chmod_args = ('chmod a+x ' + output_file).split()
     subprocess.Popen(chmod_args, stdout=subprocess.PIPE)
 
@@ -174,7 +176,7 @@ def main(argv):
 
     log.basicConfig(format="[%(levelname)s]: %(message)s", level=log.DEBUG)
 
-    vocab = InvocationSet(argv[1])    #initiate the empty vocabulary for command
+    vocab = InvocationSet(argv[1])    # initiate the empty vocabulary for command
     vocab.add_invocation(argv[1:])
     vocab.add_invocation(['ls'])
     vocab.add_invocation(['ls', '-al'])
