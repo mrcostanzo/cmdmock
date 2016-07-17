@@ -1,5 +1,5 @@
 
-when running and an output already exists, the following are possible actions:
+when running and an output file already exists, the following are possible actions:
 
 input hash and output hash already matched -> do nothing
 
