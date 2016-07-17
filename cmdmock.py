@@ -10,7 +10,7 @@ the file to be executable so a module under test or development can call it tran
 
 __version__ = '0.04'
 
-#TODO add time to auto-generated module docstring
+# TODO add time to auto-generated module docstring
 #TODO consider supporting options before the command to change behavior
 #TODO optionally enforce exact argument string or return an error
 #TODO optionally compress output into a blob in case it is catting a big file for example
