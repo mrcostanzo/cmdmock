@@ -19,12 +19,10 @@ import hashlib
 
 __version__ = '0.05'
 
-# TODO code argparse basic options
 # TODO get program name with module
 # TODO make Python3 compatible
-# TODO have logging level variable
-# TODO add time to auto-generated module docstring
-# TODO support a training file to run and mock a series of invocations
+# TODO get rid of sub-second resolution in timestamps
+# TODO write how long it took to build vocabulary?
 # TODO consider supporting options before the command to change behavior
 # TODO optionally enforce exact argument string or return an error (-s --strict?)
 # TODO optionally compress output into a blob in case it is catting a big file for example
@@ -42,7 +40,7 @@ def handle_args():
                         help='Optionally specify a training file with line-separated invocations')
     parser.add_argument('-v', '--verbose', action='store_true', dest='verbose', default=False,
                         help='Print informative messages')
-    parser.add_argument('invocation', help='command to be run with options')
+    #parser.add_argument('invocation', help='command to be run with options')
     args = parser.parse_args()
     return args
 
@@ -70,7 +68,10 @@ class InvocationSet(object):
             log.error("Invocation %s does not match command '%s'", invocation, self.cmd)
             raise ValueError
 
-        ops_and_args = invocation[1:]                   #strip off command 
+        if len(invocation) > 1:
+            ops_and_args = invocation[1:]                   #strip off command
+        else:
+            ops_and_args = ''                               #hash a null string for command without options
         #log.debug("Invoking %s", str(invocation))
         invocation_hash = hashlib.md5(str(ops_and_args)).hexdigest()  #don't hash cmd itself because paths
         #log.debug("Invocation hash is %s", invocation_hash)
@@ -141,11 +142,14 @@ def write_mock_cmd(vocab):
     vocab_string = vocab.serialize()
     
     main_string = '''\ndef main(argv):\n\t"""Main Module"""\n\n''' \
-                  '\tinvocation_hash = hashlib.md5(str(argv[1:])).hexdigest()\n' \
+                  '\tif len(argv) > 1:\n' \
+                  '\t\tinvocation_hash = hashlib.md5(str(argv[1:])).hexdigest()\n' \
+                  '\telse:\n' \
+                  '\t\tinvocation_hash = hashlib.md5("").hexdigest()\n' \
                   '\tif invocation_hash in CALL_MAP:\n' \
                   '\t\tprint OUTPUTS[CALL_MAP[invocation_hash]]\n' \
                   '\telse:\n' \
-                  '\t\tprint "Unsupported argument"\n' \
+                  '\t\tprint "Unsupported argument, re-run cmdmock with this argument included"\n' \
                   '\t\traise ValueError\n\n'
 
     exec_string = '''if __name__ == "__main__":\n\tsys.exit(main(sys.argv))'''
@@ -188,10 +192,20 @@ def main(argv):
     else:
         log.basicConfig(format="[%(levelname)s]: %(message)s")
 
-    vocab = InvocationSet(args.invocation)    # initiate the empty vocabulary for command
-    single_invocation = list()
-    single_invocation.append(args.invocation)
-    vocab.add_invocation(single_invocation)
+    if args.training_file:
+        with open(args.training_file, 'r', 0) as training_file:
+            first_line = training_file.readline().strip('\n')
+            log.debug("First read %s", first_line)
+            vocab = InvocationSet(first_line)
+
+            for line in training_file:
+                log.debug("loop read: %s", line)
+                vocab.add_invocation(line.split())
+    else:
+        vocab = InvocationSet(args.invocation)    # initiate the empty vocabulary for command
+        single_invocation = list()
+        single_invocation.append(args.invocation)
+        vocab.add_invocation(single_invocation)
     #vocab.add_invocation(['ls'])
     #vocab.add_invocation(['ls', '-al'])
     #vocab.add_invocation(['ls', '-la'])
